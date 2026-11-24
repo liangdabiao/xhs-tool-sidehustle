@@ -42,12 +42,21 @@ def collect(word, delay=3.0):
     time.sleep(2)
     t2 = sync()
     words = re.findall(r'@e\d+ button "([^"]{2,40})"', t2)
-    # 归一化：vom 渲染会在字符间插空格；过滤 UI 按钮
+    # 归一化：vom 渲染会在字符间插空格；过滤 UI 噪声（实测：更多/关于我们/全部/图文/视频/
+    # 用户/tabbtnright/综合/纯数字 等页面按钮会被一并抓到）
     words = [re.sub(r"\s+", "", w) for w in words]
-    words = [w for w in words if w and w.lower() not in
-             ("close", "搜索", "确定", "取消", "×") and not w.startswith("筛")]
+    UI_NOISE = {"close", "搜索", "确定", "取消", "×", "更多", "关于我们", "全部",
+                "图文", "视频", "用户", "综合", "筛选", "tabbtnright", "发布", "通知",
+                "消息", "首页"}
+    out = []
+    for w in words:
+        if not w or w.lower() in UI_NOISE or re.fullmatch(r"\d+", w):
+            continue
+        if w.startswith("筛"):
+            continue
+        out.append(w)
     time.sleep(delay)
-    return words, "OK"
+    return out, "OK"
 
 
 def main():
