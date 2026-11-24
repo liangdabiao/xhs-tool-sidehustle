@@ -81,12 +81,14 @@ def do_word(word):
     if not m:
         return None, "FAIL no search btn"
     bsk("click", f"@e{m.group(1)}")
-    title = wait_root(f"{word} 小红书长尾关键词挖掘", tries=10, delay=2.5)
+    # 5118 可能把查询词扩展成关联短语（如「简历制作」→「简历制作-免费模板…|在线制作个人简历」），
+    # 因此只要求标题以「小红书长尾关键词挖掘」结尾
+    title = wait_root("小红书长尾关键词挖掘", tries=10, delay=2.5)
     if not title:
         return None, "FAIL result page"
     time.sleep(4)
     total, indexed = parse_totals(sync())
-    return (total, indexed), "OK"
+    return (total, indexed), f"OK|{title}"
 
 
 def main():
@@ -100,7 +102,7 @@ def main():
     with open(args.out, "a", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         if new:
-            w.writerow(["word", "total", "indexed", "ts"])
+            w.writerow(["word", "total", "indexed", "matched_title", "ts"])
         for word in args.words:
             res, msg = None, ""
             for _ in range(args.retry + 1):
@@ -108,13 +110,14 @@ def main():
                     res, msg = do_word(word)
                 except Exception as e:
                     res, msg = None, f"FAIL exc: {e}"
-                if msg == "OK":
+                if msg.startswith("OK"):
                     break
                 time.sleep(4)
             if res:
-                w.writerow([word, res[0], res[1], time.strftime("%Y-%m-%d %H:%M")])
+                matched = msg[3:] if msg.startswith("OK|") else ""
+                w.writerow([word, res[0], res[1], matched, time.strftime("%Y-%m-%d %H:%M")])
                 f.flush()
-                print(f"{word}: total={res[0]} indexed={res[1]}", flush=True)
+                print(f"{word}: total={res[0]} matched={matched[:30]}", flush=True)
             else:
                 print(f"{word}: {msg}", flush=True)
     print(f"done -> {args.out}")
